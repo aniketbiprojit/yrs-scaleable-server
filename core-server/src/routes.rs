@@ -1,4 +1,4 @@
-pub(crate) async fn connect(
+pub(crate) async fn socket_route(
     req: actix_web::HttpRequest,
     stream: actix_web::web::Payload,
 ) -> Result<actix_web::HttpResponse, actix_web::Error> {

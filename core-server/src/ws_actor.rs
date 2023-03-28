@@ -1,5 +1,3 @@
-use actix_web_actors::ws;
-
 pub(crate) struct WSActor {}
 
 impl
@@ -9,12 +7,9 @@ impl
     fn handle(
         &mut self,
         msg: Result<actix_web_actors::ws::Message, actix_web_actors::ws::ProtocolError>,
-        ctx: &mut Self::Context,
+        _ctx: &mut Self::Context,
     ) {
         match msg {
-            Ok(ws::Message::Ping(msg)) => ctx.pong(&msg),
-            Ok(ws::Message::Text(text)) => ctx.text(text),
-            Ok(ws::Message::Binary(bin)) => ctx.binary(bin),
             _ => (),
         }
     }

@@ -14,9 +14,10 @@ async fn main() -> std::io::Result<()> {
     let app_state = Data::new(AppState::new(mongo_pool));
 
     return actix_web::HttpServer::new(move || {
-        actix_web::App::new()
-            .app_data(app_state.clone())
-            .route("/ws/", actix_web::web::get().to(routes::connect))
+        actix_web::App::new().app_data(app_state.clone()).route(
+            "/socket.io/",
+            actix_web::web::get().to(routes::socket_route),
+        )
     })
     .bind(("127.0.0.1", app_environment.port))?
     .run()
