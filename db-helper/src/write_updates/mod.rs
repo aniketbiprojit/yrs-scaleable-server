@@ -1,4 +1,5 @@
 pub mod mongo;
+pub mod postgres;
 
 pub struct StoreUpdate<'a> {
     pub document_id: &'a str,
