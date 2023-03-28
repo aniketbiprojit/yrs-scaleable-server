@@ -1,0 +1,26 @@
+[package]
+edition = "2021"
+name = "rust-final"
+version = "0.1.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[workspace]
+members = [
+  "core-server",
+  "persist-server",
+  "db-helper",
+]
+
+[[bin]]
+name = "core-server"
+path = "core-server/src/main.rs"
+
+[[bin]]
+name = "persist-server"
+path = "persist-server/src/main.rs"
+
+[dependencies]
+actix = "0.13.0"
+actix-web = "4.3.1"
+actix-web-actors = "4.2.0"
