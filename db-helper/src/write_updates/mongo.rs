@@ -1,28 +1,14 @@
 use mongodb::bson::DateTime;
 
-use crate::{entity::transaction_entity::BaseTransactionEntity, write_updates::WriteUpdates};
+use crate::{
+    db::mongo::MongoHelper, entity::transaction_entity::BaseTransactionEntity,
+    write_updates::WriteUpdates,
+};
 
 use super::StoreUpdate;
 
-pub struct MongoWriter<'a> {
-    mongo_pool: &'a bb8::Pool<bb8_mongodb::MongodbConnectionManager>,
-    collection_name: &'a str,
-}
-
-impl<'a> MongoWriter<'a> {
-    pub fn new(
-        mongo_pool: &'a bb8::Pool<bb8_mongodb::MongodbConnectionManager>,
-        collection_name: &'a str,
-    ) -> Self {
-        Self {
-            mongo_pool,
-            collection_name,
-        }
-    }
-}
-
 #[async_trait::async_trait]
-impl<'b> WriteUpdates for MongoWriter<'b> {
+impl<'b> WriteUpdates for MongoHelper<'b> {
     async fn write_update<'a>(&self, store_update: &'a StoreUpdate) -> Result<(), ()> {
         let db = self.mongo_pool.get().await.unwrap();
         let model = db.collection::<BaseTransactionEntity>(self.collection_name);
@@ -42,7 +28,7 @@ impl<'b> WriteUpdates for MongoWriter<'b> {
 }
 
 #[cfg(test)]
-mod mongo_tests {
+pub(crate) mod mongo_write_tests {
 
     use std::time::Instant;
 
@@ -95,7 +81,7 @@ mod mongo_tests {
     async fn test_write_works() {
         let mongo_pool = get_mongo_pool().await;
 
-        let mongo_writer = MongoWriter::new(&mongo_pool, "TestTransactionCollection");
+        let mongo_writer = MongoHelper::new(&mongo_pool, "TestTransactionCollection");
 
         mongo_writer
             .write_update(&StoreUpdate {
@@ -114,7 +100,7 @@ mod mongo_tests {
         let mongo_pool = get_mongo_pool().await;
 
         let collection_name = "TestTransactionCollection";
-        let mongo_writer = MongoWriter::new(&mongo_pool, collection_name);
+        let mongo_writer = MongoHelper::new(&mongo_pool, collection_name);
 
         let mut store_updates: Vec<StoreUpdate> = vec![];
         let num_updates = 10000;
@@ -142,7 +128,7 @@ mod mongo_tests {
 
         let mongo_pool = get_mongo_pool().await;
 
-        let mongo_writer = MongoWriter::new(&mongo_pool, collection_name);
+        let mongo_writer = MongoHelper::new(&mongo_pool, collection_name);
 
         let mut store_updates: Vec<StoreUpdate> = vec![];
         let num_updates = 10000;
