@@ -4,15 +4,15 @@ use crate::{entity::transaction_entity::BaseTransactionEntity, write_updates::Wr
 
 use super::StoreUpdate;
 
-pub struct MongoWriter {
-    mongo_pool: bb8::Pool<bb8_mongodb::MongodbConnectionManager>,
-    collection_name: String,
+pub struct MongoWriter<'a> {
+    mongo_pool: &'a bb8::Pool<bb8_mongodb::MongodbConnectionManager>,
+    collection_name: &'a str,
 }
 
-impl MongoWriter {
+impl<'a> MongoWriter<'a> {
     pub fn new(
-        mongo_pool: bb8::Pool<bb8_mongodb::MongodbConnectionManager>,
-        collection_name: String,
+        mongo_pool: &'a bb8::Pool<bb8_mongodb::MongodbConnectionManager>,
+        collection_name: &'a str,
     ) -> Self {
         Self {
             mongo_pool,
@@ -22,10 +22,10 @@ impl MongoWriter {
 }
 
 #[async_trait::async_trait]
-impl WriteUpdates for MongoWriter {
+impl<'b> WriteUpdates for MongoWriter<'b> {
     async fn write_update<'a>(&self, store_update: &'a StoreUpdate) -> Result<(), ()> {
         let db = self.mongo_pool.get().await.unwrap();
-        let model = db.collection::<BaseTransactionEntity>(self.collection_name.as_str());
+        let model = db.collection::<BaseTransactionEntity>(self.collection_name);
 
         let transaction_entity = BaseTransactionEntity {
             document_id: store_update.document_id.to_string(),
@@ -44,6 +44,8 @@ impl WriteUpdates for MongoWriter {
 #[cfg(test)]
 mod mongo_tests {
 
+    use std::time::Instant;
+
     use bb8::Pool;
     use bb8_mongodb::MongodbConnectionManager;
     use mongodb::options::ClientOptions;
@@ -58,12 +60,19 @@ mod mongo_tests {
         mongo_pool
     }
 
+    async fn drop_collection(mongo_pool: &Pool<MongodbConnectionManager>, collection_name: &str) {
+        let db = mongo_pool.get().await.unwrap();
+        let model = db.collection::<BaseTransactionEntity>(collection_name);
+
+        model.drop(None).await.unwrap();
+    }
+
     use super::*;
     #[tokio::test]
     async fn test_write_works() {
         let mongo_pool = get_mongo_pool().await;
 
-        let mongo_writer = MongoWriter::new(mongo_pool, "TestTransactionCollection".to_string());
+        let mongo_writer = MongoWriter::new(&mongo_pool, "TestTransactionCollection");
 
         mongo_writer
             .write_update(&StoreUpdate {
@@ -74,6 +83,51 @@ mod mongo_tests {
             .await
             .unwrap();
 
-        println!("Done!");
+        drop_collection(&mongo_pool, "TestTransactionCollection").await;
+    }
+
+    #[tokio::test]
+    async fn multiple_writes() {
+        let mongo_pool = get_mongo_pool().await;
+
+        let mongo_writer = MongoWriter::new(&mongo_pool, "TestTransactionCollection");
+
+        let mut store_updates: Vec<StoreUpdate> = vec![];
+
+        let num_updates = 10000;
+        for _ in 0..num_updates {
+            store_updates.push(StoreUpdate {
+                document_id: "test",
+                update: bytes::Bytes::from(vec![
+                    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 1, 2, 3,
+                    4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 1, 2, 3, 4, 5, 6,
+                    7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+                    10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+                    12, 13, 14, 15, 16, 17, 18, 19, 20, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
+                    14, 15, 16, 17, 18, 19, 20, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+                    16, 17, 18, 19, 20, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+                    18, 19, 20, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+                    20, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 1,
+                    2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 1, 2, 3, 4,
+                    5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 1, 2, 3, 4, 5, 6, 7,
+                    8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+                ]),
+                origin: "test_origin",
+            });
+        }
+
+        let start = Instant::now();
+
+        for store_update in store_updates {
+            mongo_writer.write_update(&store_update).await.unwrap();
+        }
+
+        let duration = start.elapsed();
+
+        println!(
+            "Time elapsed in multiple_writes() is: {:?} for {:?} in memory updates",
+            duration, num_updates
+        );
+        drop_collection(&mongo_pool, "TestTransactionCollection").await;
     }
 }
