@@ -48,7 +48,7 @@ mod mongo_tests {
 
     use bb8::Pool;
     use bb8_mongodb::MongodbConnectionManager;
-    use mongodb::options::ClientOptions;
+    use mongodb::{bson::doc, options::ClientOptions};
 
     async fn get_mongo_pool() -> Pool<MongodbConnectionManager> {
         let client_options = ClientOptions::parse("mongodb://localhost:27017/")
@@ -65,6 +65,29 @@ mod mongo_tests {
         let model = db.collection::<BaseTransactionEntity>(collection_name);
 
         model.drop(None).await.unwrap();
+    }
+
+    fn get_store_updates_test_case(num_updates: i32, store_updates: &mut Vec<StoreUpdate>) {
+        for _ in 0..num_updates {
+            store_updates.push(StoreUpdate {
+                document_id: "test",
+                update: bytes::Bytes::from(vec![
+                    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 1, 2, 3,
+                    4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 1, 2, 3, 4, 5, 6,
+                    7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+                    10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+                    12, 13, 14, 15, 16, 17, 18, 19, 20, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
+                    14, 15, 16, 17, 18, 19, 20, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+                    16, 17, 18, 19, 20, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+                    18, 19, 20, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+                    20, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 1,
+                    2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 1, 2, 3, 4,
+                    5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 1, 2, 3, 4, 5, 6, 7,
+                    8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+                ]),
+                origin: "test_origin",
+            });
+        }
     }
 
     use super::*;
@@ -90,31 +113,13 @@ mod mongo_tests {
     async fn multiple_writes() {
         let mongo_pool = get_mongo_pool().await;
 
-        let mongo_writer = MongoWriter::new(&mongo_pool, "TestTransactionCollection");
+        let collection_name = "TestTransactionCollection";
+        let mongo_writer = MongoWriter::new(&mongo_pool, collection_name);
 
         let mut store_updates: Vec<StoreUpdate> = vec![];
-
         let num_updates = 10000;
-        for _ in 0..num_updates {
-            store_updates.push(StoreUpdate {
-                document_id: "test",
-                update: bytes::Bytes::from(vec![
-                    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 1, 2, 3,
-                    4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 1, 2, 3, 4, 5, 6,
-                    7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 1, 2, 3, 4, 5, 6, 7, 8, 9,
-                    10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
-                    12, 13, 14, 15, 16, 17, 18, 19, 20, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
-                    14, 15, 16, 17, 18, 19, 20, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
-                    16, 17, 18, 19, 20, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
-                    18, 19, 20, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
-                    20, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 1,
-                    2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 1, 2, 3, 4,
-                    5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 1, 2, 3, 4, 5, 6, 7,
-                    8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
-                ]),
-                origin: "test_origin",
-            });
-        }
+
+        get_store_updates_test_case(num_updates, &mut store_updates);
 
         let start = Instant::now();
 
@@ -128,6 +133,39 @@ mod mongo_tests {
             "Time elapsed in multiple_writes() is: {:?} for {:?} in memory updates",
             duration, num_updates
         );
-        drop_collection(&mongo_pool, "TestTransactionCollection").await;
+        drop_collection(&mongo_pool, collection_name).await;
+    }
+
+    #[tokio::test]
+    async fn multiple_writes_with_clock() {
+        let collection_name = "TestTransactionCollection";
+
+        let mongo_pool = get_mongo_pool().await;
+
+        let mongo_writer = MongoWriter::new(&mongo_pool, collection_name);
+
+        let mut store_updates: Vec<StoreUpdate> = vec![];
+        let num_updates = 10000;
+
+        get_store_updates_test_case(num_updates, &mut store_updates);
+
+        let start = Instant::now();
+
+        for store_update in store_updates {
+            let db = mongo_pool.get().await.unwrap();
+            let model = db.collection::<BaseTransactionEntity>(collection_name);
+
+            model.count_documents(doc! {}, None).await.is_ok();
+
+            mongo_writer.write_update(&store_update).await.unwrap();
+        }
+
+        let duration = start.elapsed();
+
+        println!(
+            "Time elapsed in multiple_writes_with_clock() is: {:?} for {:?} in memory updates",
+            duration, num_updates
+        );
+        drop_collection(&mongo_pool, collection_name).await;
     }
 }

@@ -1,5 +1,6 @@
 pub mod mongo;
 
+#[derive(Debug)]
 pub struct StoreUpdate<'a> {
     pub document_id: &'a str,
     pub update: bytes::Bytes,
