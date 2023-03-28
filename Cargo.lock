@@ -538,6 +538,7 @@ dependencies = [
  "actix",
  "actix-web",
  "actix-web-actors",
+ "db-helper",
 ]
 
 [[package]]

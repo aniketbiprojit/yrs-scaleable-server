@@ -28,11 +28,11 @@ impl<'b> WriteUpdates for MongoWriter<'b> {
         let model = db.collection::<BaseTransactionEntity>(self.collection_name);
 
         let transaction_entity = BaseTransactionEntity {
-            document_id: store_update.document_id.to_string(),
+            docName: store_update.document_id.to_string(),
             origin: Some(store_update.origin.to_string()),
             value: Some(store_update.update.clone()),
-            created_at: DateTime::now(),
-            updated_at: DateTime::now(),
+            createdAt: DateTime::now(),
+            updatedAt: DateTime::now(),
         };
 
         model.insert_one(transaction_entity, None).await.unwrap();
