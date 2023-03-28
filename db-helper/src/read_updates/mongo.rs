@@ -76,12 +76,10 @@ pub(crate) mod mongo_read_tests {
 
         let mongo_writer = MongoHelper::new(&mongo_pool, "TestTransactionCollection");
 
-        // add random number at collection_name
         let collection_name = "TestTransactionCollection";
 
         let mut store_updates: Vec<StoreUpdate> = vec![];
-        // this should be 10_000 but it takes over 26 seconds.
-        // left in 1000 for now for tests.
+
         let num_updates = 10_000;
         drop_collection(&mongo_pool, collection_name).await;
 
