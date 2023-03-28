@@ -3,6 +3,7 @@ use config::{app_state::AppState, get_mongo_pool, parse_env};
 
 pub mod config;
 pub mod routes;
+pub mod socket_message;
 pub mod ws_actor;
 
 #[actix_web::main]
