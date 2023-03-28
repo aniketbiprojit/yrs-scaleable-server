@@ -33,11 +33,15 @@ impl<'b> ReadUpdates for MongoHelper<'b> {
 
 #[cfg(test)]
 pub(crate) mod mongo_read_tests {
+    use std::time::Instant;
+
     use crate::{
         db::mongo::MongoHelper,
         read_updates::ReadUpdates,
         write_updates::{
-            mongo::mongo_write_tests::{drop_collection, get_mongo_pool},
+            mongo::mongo_write_tests::{
+                drop_collection, get_mongo_pool, get_store_updates_test_case,
+            },
             StoreUpdate, WriteUpdates,
         },
     };
@@ -64,5 +68,43 @@ pub(crate) mod mongo_read_tests {
         assert_eq!(updates.len(), 1);
 
         drop_collection(&mongo_pool, "TestTransactionCollection").await;
+    }
+
+    #[tokio::test]
+    async fn test_multiple_reads() {
+        let mongo_pool = get_mongo_pool().await;
+
+        let mongo_writer = MongoHelper::new(&mongo_pool, "TestTransactionCollection");
+
+        // add random number at collection_name
+        let collection_name = "TestTransactionCollection";
+
+        let mut store_updates: Vec<StoreUpdate> = vec![];
+        // this should be 10_000 but it takes over 26 seconds.
+        // left in 1000 for now for tests.
+        let num_updates = 10_000;
+        drop_collection(&mongo_pool, collection_name).await;
+
+        get_store_updates_test_case(num_updates, &mut store_updates);
+
+        for store_update in store_updates {
+            mongo_writer.write_update(&store_update).await.unwrap();
+        }
+
+        let start = Instant::now();
+
+        let mongo_reader = MongoHelper::new(&mongo_pool, "TestTransactionCollection");
+
+        let updates = mongo_reader.get_updates("test").await.unwrap();
+
+        assert_eq!(updates.len(), num_updates as usize);
+
+        let duration = start.elapsed();
+
+        println!(
+            "Time in test_multiple_reads() is: {:?} for {:?} in memory updates",
+            duration, num_updates
+        );
+        drop_collection(&mongo_pool, collection_name).await;
     }
 }
