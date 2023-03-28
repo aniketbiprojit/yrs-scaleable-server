@@ -36,7 +36,7 @@ pub(crate) mod mongo_write_tests {
     use bb8_mongodb::MongodbConnectionManager;
     use mongodb::{bson::doc, options::ClientOptions};
 
-    async fn get_mongo_pool() -> Pool<MongodbConnectionManager> {
+    pub(crate) async fn get_mongo_pool() -> Pool<MongodbConnectionManager> {
         let client_options = ClientOptions::parse("mongodb://localhost:27017/")
             .await
             .unwrap();
@@ -46,14 +46,20 @@ pub(crate) mod mongo_write_tests {
         mongo_pool
     }
 
-    async fn drop_collection(mongo_pool: &Pool<MongodbConnectionManager>, collection_name: &str) {
+    pub(crate) async fn drop_collection(
+        mongo_pool: &Pool<MongodbConnectionManager>,
+        collection_name: &str,
+    ) {
         let db = mongo_pool.get().await.unwrap();
         let model = db.collection::<BaseTransactionEntity>(collection_name);
 
         model.drop(None).await.unwrap();
     }
 
-    fn get_store_updates_test_case(num_updates: i32, store_updates: &mut Vec<StoreUpdate>) {
+    pub(crate) fn get_store_updates_test_case(
+        num_updates: i32,
+        store_updates: &mut Vec<StoreUpdate>,
+    ) {
         for _ in 0..num_updates {
             store_updates.push(StoreUpdate {
                 document_id: "test",
@@ -123,6 +129,8 @@ pub(crate) mod mongo_write_tests {
     }
 
     #[tokio::test]
+    // too expensive ignore unless you want to run it
+    #[cfg_attr(not(feature = "expensive_tests"), ignore)]
     async fn multiple_writes_with_clock() {
         let collection_name = "TestTransactionCollection";
 
@@ -131,7 +139,9 @@ pub(crate) mod mongo_write_tests {
         let mongo_writer = MongoHelper::new(&mongo_pool, collection_name);
 
         let mut store_updates: Vec<StoreUpdate> = vec![];
-        let num_updates = 10000;
+        // this should be 10_000 but it takes over 26 seconds.
+        // left in 1000 for now for tests.
+        let num_updates = 1000;
 
         get_store_updates_test_case(num_updates, &mut store_updates);
 

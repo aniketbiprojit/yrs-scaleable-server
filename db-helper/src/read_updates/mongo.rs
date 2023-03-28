@@ -32,4 +32,37 @@ impl<'b> ReadUpdates for MongoHelper<'b> {
 }
 
 #[cfg(test)]
-pub(crate) mod mongo_read_tests {}
+pub(crate) mod mongo_read_tests {
+    use crate::{
+        db::mongo::MongoHelper,
+        read_updates::ReadUpdates,
+        write_updates::{
+            mongo::mongo_write_tests::{drop_collection, get_mongo_pool},
+            StoreUpdate, WriteUpdates,
+        },
+    };
+
+    #[tokio::test]
+    async fn test_read_works() {
+        let mongo_pool = get_mongo_pool().await;
+
+        let mongo_writer = MongoHelper::new(&mongo_pool, "TestTransactionCollection");
+
+        mongo_writer
+            .write_update(&StoreUpdate {
+                document_id: "test",
+                update: bytes::Bytes::from(vec![1, 2, 3]),
+                origin: "test_origin",
+            })
+            .await
+            .unwrap();
+
+        let mongo_reader = MongoHelper::new(&mongo_pool, "TestTransactionCollection");
+
+        let updates = mongo_reader.get_updates("test").await.unwrap();
+
+        assert_eq!(updates.len(), 1);
+
+        drop_collection(&mongo_pool, "TestTransactionCollection").await;
+    }
+}
