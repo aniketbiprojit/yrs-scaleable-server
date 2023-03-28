@@ -9,4 +9,8 @@ version = "0.1.0"
 actix = {version = "0.13.0"}
 actix-web = "4.3.1"
 actix-web-actors = "4.2.0"
+bb8 = "0.8.0"
+bb8-mongodb = "0.2.0"
 db-helper = {path = "../db-helper"}
+envfile = "0.2.1"
+mongodb = "2.4.0"
