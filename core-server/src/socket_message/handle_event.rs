@@ -2,7 +2,10 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 
 use lib0::decoding::Cursor;
 use y_sync::sync::{Message, MessageReader, SyncMessage};
-use yrs::updates::decoder::DecoderV1;
+use yrs::updates::{
+    decoder::DecoderV1,
+    encoder::{Encode, Encoder, EncoderV1},
+};
 
 use super::SocketMessage;
 
@@ -28,14 +31,31 @@ pub fn handle_event_v1(
 
             match msg {
                 Message::Sync(msg) => match msg {
-                    SyncMessage::SyncStep1(sv) => {
-                        println!("SyncStep1: {:?}", sv);
+                    SyncMessage::SyncStep1(_sv) => {
+                        // println!("SyncStep1: {:?}", sv);
                     }
                     SyncMessage::SyncStep2(update) => {
-                        println!("SyncStep2: {:?}", update);
+                        // TODO: apply update in main
+                        // println!("SyncStep2: {:?}", update);
+
+                        let message = Message::Sync(SyncMessage::SyncStep2(update.clone()));
+                        let mut encoder = EncoderV1::new();
+
+                        message.encode(&mut encoder);
+                        let message = encoder.to_vec();
+
+                        return Ok((Some(message), Some(update), 1));
                     }
                     SyncMessage::Update(update) => {
-                        println!("Update: {:?}", update);
+                        // TODO: apply update in main
+
+                        // println!("Update: {:?}", update);
+                        let message = Message::Sync(SyncMessage::SyncStep2(update.clone()));
+                        let mut encoder = EncoderV1::new();
+
+                        message.encode(&mut encoder);
+                        let message = encoder.to_vec();
+                        return Ok((Some(message), Some(update), 2));
                     }
                 },
                 _ => {}
