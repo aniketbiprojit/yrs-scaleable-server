@@ -24,7 +24,12 @@ impl<'b> ReadUpdates for MongoHelper<'b> {
         for transaction in transactions {
             let transaction = transaction.unwrap();
             if transaction.value.is_some() {
-                updates.push(transaction.value.unwrap())
+                if transaction.isMetadataVersion.is_none()
+                    || (transaction.isMetadataVersion.is_some()
+                        && transaction.isMetadataVersion.unwrap() == false)
+                {
+                    updates.push(transaction.value.unwrap())
+                }
             };
         }
         return Ok(updates);

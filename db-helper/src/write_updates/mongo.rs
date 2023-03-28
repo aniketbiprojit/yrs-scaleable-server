@@ -14,11 +14,13 @@ impl<'b> WriteUpdates for MongoHelper<'b> {
         let model = db.collection::<BaseTransactionEntity>(self.collection_name);
 
         let transaction_entity = BaseTransactionEntity {
-            docName: store_update.document_id.to_string(),
+            docName: Some(store_update.document_id.to_string()),
             origin: Some(store_update.origin.to_string()),
             value: Some(store_update.update.clone()),
-            createdAt: DateTime::now(),
-            updatedAt: DateTime::now(),
+            createdAt: Some(DateTime::now()),
+            updatedAt: Some(DateTime::now()),
+            isMetadataVersion: Some(false),
+            name: Some(store_update.document_id.to_string()),
         };
 
         model.insert_one(transaction_entity, None).await.unwrap();
