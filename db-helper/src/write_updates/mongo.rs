@@ -155,7 +155,8 @@ mod mongo_tests {
             let db = mongo_pool.get().await.unwrap();
             let model = db.collection::<BaseTransactionEntity>(collection_name);
 
-            model.count_documents(doc! {}, None).await.is_ok();
+            let count = model.count_documents(doc! {}, None).await;
+            if count.is_ok() {}
 
             mongo_writer.write_update(&store_update).await.unwrap();
         }
