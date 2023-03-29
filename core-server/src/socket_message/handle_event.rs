@@ -1,5 +1,6 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 
+use bytes::Bytes;
 use lib0::decoding::Cursor;
 use y_sync::sync::{Message, MessageReader, SyncMessage};
 use yrs::updates::{
@@ -11,7 +12,7 @@ use super::SocketMessage;
 
 pub fn handle_event_v1(
     socket_message: &SocketMessage,
-) -> Result<(Option<Vec<u8>>, Option<Vec<u8>>, u8), lib0::error::Error> {
+) -> Result<(Option<Bytes>, Option<Bytes>, u8), lib0::error::Error> {
     {
         if &socket_message.event != "Sync" {
             return Ok((None, None, 0u8));
@@ -32,6 +33,7 @@ pub fn handle_event_v1(
             match msg {
                 Message::Sync(msg) => match msg {
                     SyncMessage::SyncStep1(_sv) => {
+                        // TODO: apply update in main
                         // println!("SyncStep1: {:?}", sv);
                     }
                     SyncMessage::SyncStep2(update) => {
@@ -44,18 +46,26 @@ pub fn handle_event_v1(
                         message.encode(&mut encoder);
                         let message = encoder.to_vec();
 
-                        return Ok((Some(message), Some(update), 1));
+                        return Ok((
+                            Some(Bytes::copy_from_slice(&message)),
+                            Some(Bytes::copy_from_slice(&update)),
+                            1,
+                        ));
                     }
                     SyncMessage::Update(update) => {
                         // TODO: apply update in main
-
                         // println!("Update: {:?}", update);
+
                         let message = Message::Sync(SyncMessage::SyncStep2(update.clone()));
                         let mut encoder = EncoderV1::new();
 
                         message.encode(&mut encoder);
                         let message = encoder.to_vec();
-                        return Ok((Some(message), Some(update), 2));
+                        return Ok((
+                            Some(Bytes::copy_from_slice(&message)),
+                            Some(Bytes::copy_from_slice(&update)),
+                            2,
+                        ));
                     }
                 },
                 _ => {}
