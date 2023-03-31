@@ -3,19 +3,24 @@ use std::sync::Arc;
 #[cfg(feature = "use_channel")]
 use std::sync::mpsc::Sender;
 
-use actix::ActorContext;
+use actix::{ActorContext, AsyncContext, Handler, Message};
+use actix_web::web::Data;
 use actix_web_actors::ws;
 use base64::{engine::general_purpose::STANDARD, Engine};
 
 use chashmap::CHashMap;
 
-use crate::socket_message::{handle_event, SocketMessage};
+use crate::{
+    socket_message::{handle_event, SocketMessage},
+    types::BroadcastToAddresses,
+};
 
 pub(crate) struct WSActor {
     pub document_id: String,
     pub docs: Arc<CHashMap<String, yrs::Doc>>,
     #[cfg(feature = "use_channel")]
     pub doc_data: Sender<crate::channel::UpdateMainMessage>,
+    pub broadcast_to_addresses: Data<BroadcastToAddresses>,
 }
 
 impl actix::StreamHandler<Result<ws::Message, actix_web_actors::ws::ProtocolError>> for WSActor {
@@ -60,6 +65,7 @@ impl actix::StreamHandler<Result<ws::Message, actix_web_actors::ws::ProtocolErro
                         &self.document_id,
                         handle_event.update,
                         handle_event.message_type,
+                        Some(ctx.address()),
                     ))
                     .unwrap();
             }
@@ -70,6 +76,25 @@ impl actix::StreamHandler<Result<ws::Message, actix_web_actors::ws::ProtocolErro
 
 impl actix::Actor for WSActor {
     type Context = actix_web_actors::ws::WebsocketContext<Self>;
+
+    fn stopped(&mut self, ctx: &mut Self::Context) {
+        self.broadcast_to_addresses
+            .get_mut(&self.document_id)
+            .unwrap()
+            .remove(&ctx.address());
+    }
+}
+
+#[derive(Debug, Message)]
+#[rtype(result = "()")]
+struct Sync(pub String);
+
+impl Handler<Sync> for WSActor {
+    type Result = ();
+
+    fn handle(&mut self, msg: Sync, ctx: &mut Self::Context) -> Self::Result {
+        ctx.text(msg.0);
+    }
 }
 
 impl WSActor {

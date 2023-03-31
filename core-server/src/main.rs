@@ -5,12 +5,14 @@ use std::thread::available_parallelism;
 use actix_web::web::Data;
 use chashmap::CHashMap;
 use config::{app_state::AppState, get_mongo_pool, parse_env};
+use types::BroadcastToAddresses;
 
 pub mod channel;
 
 pub mod config;
 pub mod routes;
 pub mod socket_message;
+pub mod types;
 pub mod utils;
 pub mod ws_actor;
 
@@ -33,6 +35,8 @@ async fn main() -> std::io::Result<()> {
 
     #[cfg(feature = "use_channel")]
     let move_docs = docs.clone();
+
+    let broadcast_to_addresses: Data<BroadcastToAddresses> = Data::new(CHashMap::new());
 
     // get cpu count
     let default_parallelism_approx = available_parallelism();
@@ -68,6 +72,7 @@ async fn main() -> std::io::Result<()> {
         actix_web::App::new()
             .app_data(app_state.clone())
             .app_data(doc_data)
+            .app_data(broadcast_to_addresses.clone())
             .app_data(docs.clone())
             .route(
                 "/socket.io/",
