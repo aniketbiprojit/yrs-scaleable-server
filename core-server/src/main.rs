@@ -81,6 +81,7 @@ async fn main() -> std::io::Result<()> {
             }
         }
     });
+    let counter = Data::new(Mutex::new(0));
 
     return actix_web::HttpServer::new(move || {
         #[cfg(feature = "use_channel")]
@@ -88,8 +89,6 @@ async fn main() -> std::io::Result<()> {
 
         #[cfg(feature = "use_mutex")]
         let doc_data = Data::new({});
-
-        let counter = Data::new(Mutex::new(0));
 
         actix_web::App::new()
             .app_data(app_state.clone())

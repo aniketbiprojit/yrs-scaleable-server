@@ -36,6 +36,8 @@ pub(crate) async fn socket_route(
 
         *counter += 1;
         socket_count = *counter;
+
+        println!("Socket count: {}", socket_count);
     }
 
     let (addr, resp) = WsResponseBuilder::new(

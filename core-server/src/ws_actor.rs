@@ -104,6 +104,7 @@ impl Handler<Sync> for WSActor {
         if msg.socket_id == self.socket_id {
             return;
         }
+
         self.send_self(&msg.event, &msg.message, ctx);
     }
 }
