@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
 #[cfg(feature = "use_channel")]
@@ -15,6 +15,7 @@ pub(crate) async fn socket_route(
     req: actix_web::HttpRequest,
     stream: actix_web::web::Payload,
     docs: web::Data<crate::CHashMap<String, yrs::Doc>>,
+    counter: web::Data<Mutex<i32>>,
     broadcast_to_addresses: web::Data<BroadcastToAddresses>,
     #[cfg(feature = "use_channel")] doc_data: web::Data<Sender<crate::channel::UpdateMainMessage>>,
 ) -> Result<actix_web::HttpResponse, actix_web::Error> {
@@ -28,6 +29,15 @@ pub(crate) async fn socket_route(
         docs.insert_new(document_id.clone(), yrs::Doc::new());
     }
 
+    let socket_count;
+
+    {
+        let mut counter = counter.lock().unwrap();
+
+        *counter += 1;
+        socket_count = *counter;
+    }
+
     let (addr, resp) = WsResponseBuilder::new(
         crate::ws_actor::WSActor {
             document_id: document_id.clone(),
@@ -35,6 +45,7 @@ pub(crate) async fn socket_route(
             #[cfg(feature = "use_channel")]
             doc_data: doc_data.get_ref().clone(),
             broadcast_to_addresses: broadcast_to_addresses.clone(),
+            socket_id: socket_count,
         },
         &req,
         stream,

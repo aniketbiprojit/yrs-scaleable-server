@@ -5,7 +5,8 @@ pub(crate) struct UpdateMainMessage {
     pub document_id: String,
     pub update: Option<bytes::Bytes>,
     pub message_type: u8,
-    pub addr: Option<actix::Addr<crate::ws_actor::WSActor>>,
+    pub socket_id: i32,
+    pub encoded_message: String,
 }
 
 impl UpdateMainMessage {
@@ -13,13 +14,15 @@ impl UpdateMainMessage {
         document_id: &str,
         update: Option<bytes::Bytes>,
         message_type: u8,
-        addr: Option<actix::Addr<crate::ws_actor::WSActor>>,
+        counter: i32,
+        encoded_message: String,
     ) -> Self {
         Self {
             document_id: document_id.to_string(),
             update,
             message_type,
-            addr,
+            socket_id: counter,
+            encoded_message,
         }
     }
 }

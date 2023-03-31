@@ -21,6 +21,7 @@ pub(crate) struct WSActor {
     #[cfg(feature = "use_channel")]
     pub doc_data: Sender<crate::channel::UpdateMainMessage>,
     pub broadcast_to_addresses: Data<BroadcastToAddresses>,
+    pub socket_id: i32,
 }
 
 impl actix::StreamHandler<Result<ws::Message, actix_web_actors::ws::ProtocolError>> for WSActor {
@@ -54,8 +55,10 @@ impl actix::StreamHandler<Result<ws::Message, actix_web_actors::ws::ProtocolErro
 
                 let message = handle_event.message.unwrap();
 
+                let base64_message = STANDARD.encode(message.to_vec());
+
                 if handle_event.message_type == 0 || handle_event.message_type == 1 {
-                    self.send_self("Sync", &STANDARD.encode(message.to_vec()), ctx)
+                    self.send_self("Sync", &base64_message, ctx)
                 }
 
                 // handle sync v1?
@@ -65,7 +68,8 @@ impl actix::StreamHandler<Result<ws::Message, actix_web_actors::ws::ProtocolErro
                         &self.document_id,
                         handle_event.update,
                         handle_event.message_type,
-                        Some(ctx.address()),
+                        self.socket_id,
+                        base64_message,
                     ))
                     .unwrap();
             }
@@ -87,13 +91,20 @@ impl actix::Actor for WSActor {
 
 #[derive(Debug, Message)]
 #[rtype(result = "()")]
-struct Sync(pub String);
+pub struct Sync {
+    pub message: String,
+    pub event: String,
+    pub socket_id: i32,
+}
 
 impl Handler<Sync> for WSActor {
     type Result = ();
 
     fn handle(&mut self, msg: Sync, ctx: &mut Self::Context) -> Self::Result {
-        ctx.text(msg.0);
+        if msg.socket_id == self.socket_id {
+            return;
+        }
+        self.send_self(&msg.event, &msg.message, ctx);
     }
 }
 

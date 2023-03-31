@@ -1,11 +1,12 @@
 #[cfg(feature = "use_channel")]
 use std::sync::mpsc::{self, Receiver, Sender};
-use std::thread::available_parallelism;
+use std::{sync::Mutex, thread::available_parallelism};
 
 use actix_web::web::Data;
 use chashmap::CHashMap;
 use config::{app_state::AppState, get_mongo_pool, parse_env};
 use types::BroadcastToAddresses;
+use ws_actor::Sync;
 
 pub mod channel;
 
@@ -47,8 +48,12 @@ async fn main() -> std::io::Result<()> {
     };
 
     #[cfg(feature = "use_channel")]
+    let move_broadcast_to_addresses = broadcast_to_addresses.clone();
+
+    #[cfg(feature = "use_channel")]
     actix::spawn(async move {
         let docs = move_docs.clone();
+
         for msg in rx.iter() {
             if msg.update.is_some() && (msg.message_type == 1 || msg.message_type == 2) {
                 if docs.get(&msg.document_id).is_none() {
@@ -58,6 +63,19 @@ async fn main() -> std::io::Result<()> {
                 let doc = docs.get_mut(&msg.document_id).unwrap();
 
                 utils::apply_update(&doc, &msg.update.unwrap().to_vec());
+
+                if move_broadcast_to_addresses.get(&msg.document_id).is_some() {
+                    let broadcast_to_addresses =
+                        move_broadcast_to_addresses.get(&msg.document_id).unwrap();
+
+                    for addr in broadcast_to_addresses.iter() {
+                        addr.do_send(Sync {
+                            message: msg.encoded_message.to_string(),
+                            event: "Sync".to_string(),
+                            socket_id: msg.socket_id,
+                        });
+                    }
+                }
             }
         }
     });
@@ -69,10 +87,13 @@ async fn main() -> std::io::Result<()> {
         #[cfg(feature = "use_mutex")]
         let doc_data = Data::new({});
 
+        let counter = Data::new(Mutex::new(0));
+
         actix_web::App::new()
             .app_data(app_state.clone())
             .app_data(doc_data)
             .app_data(broadcast_to_addresses.clone())
+            .app_data(counter.clone())
             .app_data(docs.clone())
             .route(
                 "/socket.io/",
