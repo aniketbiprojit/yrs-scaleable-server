@@ -1,7 +1,7 @@
-use std::{
-    collections::HashMap,
-    sync::{mpsc::Sender, Arc},
-};
+use std::{collections::HashMap, sync::Arc};
+
+#[cfg(feature = "use_channel")]
+use std::sync::mpsc::Sender;
 
 use actix_web::web::{self, Query};
 
@@ -10,7 +10,6 @@ pub(crate) async fn socket_route(
     stream: actix_web::web::Payload,
     docs: web::Data<crate::CHashMap<String, yrs::Doc>>,
     #[cfg(feature = "use_channel")] doc_data: web::Data<Sender<crate::channel::UpdateMainMessage>>,
-    #[cfg(feature = "use_mutex")] doc_data: web::Data<()>,
 ) -> Result<actix_web::HttpResponse, actix_web::Error> {
     let query = Query::<HashMap<String, String>>::from_query(req.query_string()).unwrap();
 
@@ -28,8 +27,6 @@ pub(crate) async fn socket_route(
             docs: Arc::clone(&docs),
             #[cfg(feature = "use_channel")]
             doc_data: doc_data.get_ref().clone(),
-            #[cfg(feature = "use_mutex")]
-            doc_data: (),
         },
         &req,
         stream,

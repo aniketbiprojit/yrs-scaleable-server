@@ -14,6 +14,9 @@ use yrs::{
     ReadTxn, Transact,
 };
 
+#[cfg(feature = "use_mutex")]
+use crate::utils::apply_update;
+
 use super::SocketMessage;
 
 #[derive(Default, Debug)]
@@ -69,6 +72,11 @@ pub fn handle_event_v1(
                     SyncMessage::SyncStep2(update) => {
                         // println!("SyncStep2: {:?}", update);
 
+                        #[cfg(feature = "use_mutex")]
+                        {
+                            let doc = docs.get_mut(document_id).unwrap();
+                            apply_update(&doc, &update);
+                        }
                         let message = Message::Sync(SyncMessage::SyncStep2(update.clone()));
                         let mut encoder = EncoderV1::new();
 
@@ -79,7 +87,11 @@ pub fn handle_event_v1(
                     }
                     SyncMessage::Update(update) => {
                         // println!("Update: {:?}", update);
-
+                        #[cfg(feature = "use_mutex")]
+                        {
+                            let doc = docs.get_mut(document_id).unwrap();
+                            apply_update(&doc, &update);
+                        }
                         let message = Message::Sync(SyncMessage::SyncStep2(update.clone()));
                         let mut encoder = EncoderV1::new();
 

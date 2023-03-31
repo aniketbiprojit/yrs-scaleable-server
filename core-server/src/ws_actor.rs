@@ -1,4 +1,7 @@
-use std::sync::{mpsc::Sender, Arc};
+use std::sync::Arc;
+
+#[cfg(feature = "use_channel")]
+use std::sync::mpsc::Sender;
 
 use actix::ActorContext;
 use actix_web_actors::ws::Message;
@@ -11,8 +14,6 @@ use crate::socket_message::{handle_event, SocketMessage};
 pub(crate) struct WSActor {
     pub document_id: String,
     pub docs: Arc<CHashMap<String, yrs::Doc>>,
-    #[cfg(feature = "use_mutex")]
-    pub doc_data: (),
     #[cfg(feature = "use_channel")]
     pub doc_data: Sender<crate::channel::UpdateMainMessage>,
 }

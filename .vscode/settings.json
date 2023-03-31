@@ -1,4 +1,4 @@
 {
-  "cSpell.words": ["actix", "Pgsql"],
+  "cSpell.words": ["actix", "Pgsql", "chashmap"],
   "dotenv.enableAutocloaking": false
 }

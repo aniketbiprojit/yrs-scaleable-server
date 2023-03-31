@@ -1,16 +1,17 @@
 #[cfg(feature = "use_channel")]
 use std::sync::mpsc::{self, Receiver, Sender};
+use std::thread::available_parallelism;
 
 use actix_web::web::Data;
 use chashmap::CHashMap;
 use config::{app_state::AppState, get_mongo_pool, parse_env};
-use yrs::{updates::decoder::Decode, Transact, Update};
 
 pub mod channel;
 
 pub mod config;
 pub mod routes;
 pub mod socket_message;
+pub mod utils;
 pub mod ws_actor;
 
 #[actix_web::main]
@@ -30,7 +31,16 @@ async fn main() -> std::io::Result<()> {
 
     let docs = Data::new(docs);
 
+    #[cfg(feature = "use_channel")]
     let move_docs = docs.clone();
+
+    // get cpu count
+    let default_parallelism_approx = available_parallelism();
+    let num_cpu: usize = if default_parallelism_approx.is_ok() {
+        default_parallelism_approx.unwrap().get()
+    } else {
+        1
+    };
 
     #[cfg(feature = "use_channel")]
     actix::spawn(async move {
@@ -42,12 +52,8 @@ async fn main() -> std::io::Result<()> {
                 }
 
                 let doc = docs.get_mut(&msg.document_id).unwrap();
-                let mut tx = doc.transact_mut();
 
-                let update = msg.update.unwrap();
-                let update_to_apply = Update::decode_v1(&*update.to_vec()).unwrap();
-
-                tx.apply_update(update_to_apply);
+                utils::apply_update(&doc, &msg.update.unwrap().to_vec());
             }
         }
     });
@@ -68,6 +74,7 @@ async fn main() -> std::io::Result<()> {
                 actix_web::web::get().to(routes::socket_route),
             )
     })
+    .workers(num_cpu * 2)
     .bind(("127.0.0.1", app_environment.port))?
     .run()
     .await;
