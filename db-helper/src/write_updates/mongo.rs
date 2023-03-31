@@ -27,6 +27,31 @@ impl<'b> WriteUpdates for MongoHelper<'b> {
 
         return Ok(());
     }
+
+    async fn write_batch_updates<'a>(&self, store_updates: &'a Vec<StoreUpdate>) -> Result<(), ()> {
+        let db = self.mongo_pool.get().await.unwrap();
+        let model = db.collection::<BaseTransactionEntity>(self.collection_name);
+
+        let mut transaction_entities: Vec<BaseTransactionEntity> = vec![];
+
+        for store_update in store_updates {
+            let transaction_entity = BaseTransactionEntity {
+                docName: Some(store_update.document_id.to_string()),
+                origin: Some(store_update.origin.to_string()),
+                value: Some(store_update.update.clone()),
+                createdAt: Some(DateTime::now()),
+                updatedAt: Some(DateTime::now()),
+                isMetadataVersion: Some(false),
+                name: Some(store_update.document_id.to_string()),
+            };
+
+            transaction_entities.push(transaction_entity);
+        }
+
+        model.insert_many(transaction_entities, None).await.unwrap();
+
+        return Ok(());
+    }
 }
 
 #[cfg(test)]
@@ -125,6 +150,34 @@ pub(crate) mod mongo_write_tests {
 
         println!(
             "Time elapsed in multiple_writes() is: {:?} for {:?} in memory updates",
+            duration, num_updates
+        );
+        drop_collection(&mongo_pool, collection_name).await;
+    }
+
+    #[tokio::test]
+    async fn write_batch_update() {
+        let mongo_pool = get_mongo_pool().await;
+
+        let collection_name = "TestTransactionCollection";
+        let mongo_writer = MongoHelper::new(&mongo_pool, collection_name);
+
+        let mut store_updates: Vec<StoreUpdate> = vec![];
+        let num_updates = 10000;
+
+        get_store_updates_test_case(num_updates, &mut store_updates);
+
+        let start = Instant::now();
+
+        mongo_writer
+            .write_batch_updates(&store_updates)
+            .await
+            .unwrap();
+
+        let duration = start.elapsed();
+
+        println!(
+            "Time elapsed in write_batch_update() is: {:?} for {:?} in memory updates",
             duration, num_updates
         );
         drop_collection(&mongo_pool, collection_name).await;

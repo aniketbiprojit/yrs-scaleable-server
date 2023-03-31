@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::sync::mpsc::Sender;
 
 use actix::ActorContext;
-use actix_web_actors::ws::Message;
+use actix_web_actors::ws;
 use base64::{engine::general_purpose::STANDARD, Engine};
 
 use chashmap::CHashMap;
@@ -18,17 +18,14 @@ pub(crate) struct WSActor {
     pub doc_data: Sender<crate::channel::UpdateMainMessage>,
 }
 
-impl
-    actix::StreamHandler<Result<actix_web_actors::ws::Message, actix_web_actors::ws::ProtocolError>>
-    for WSActor
-{
+impl actix::StreamHandler<Result<ws::Message, actix_web_actors::ws::ProtocolError>> for WSActor {
     fn handle(
         &mut self,
         msg: Result<actix_web_actors::ws::Message, actix_web_actors::ws::ProtocolError>,
         ctx: &mut Self::Context,
     ) {
         match msg {
-            Ok(Message::Text(text)) => {
+            Ok(ws::Message::Text(text)) => {
                 let socket_message = serde_json::from_str::<SocketMessage>(&text);
 
                 if socket_message.is_err() {

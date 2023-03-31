@@ -70,8 +70,6 @@ pub fn handle_event_v1(
                         return Ok(HandleEvent::new(message, update, 0));
                     }
                     SyncMessage::SyncStep2(update) => {
-                        // println!("SyncStep2: {:?}", update);
-
                         #[cfg(feature = "use_mutex")]
                         {
                             let doc = docs.get_mut(document_id).unwrap();
@@ -86,7 +84,6 @@ pub fn handle_event_v1(
                         return Ok(HandleEvent::new(message, update, 1));
                     }
                     SyncMessage::Update(update) => {
-                        // println!("Update: {:?}", update);
                         #[cfg(feature = "use_mutex")]
                         {
                             let doc = docs.get_mut(document_id).unwrap();
