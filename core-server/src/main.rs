@@ -6,6 +6,8 @@ use actix_web::web::Data;
 use chashmap::CHashMap;
 use config::{app_state::AppState, get_mongo_pool, parse_env};
 use types::BroadcastToAddresses;
+
+#[cfg(feature = "use_channel")]
 use ws_actor::Sync;
 
 pub mod channel;
