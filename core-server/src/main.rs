@@ -1,10 +1,14 @@
 #[cfg(feature = "use_channel")]
 use std::sync::mpsc::{self, Receiver, Sender};
-use std::{sync::Mutex, thread::available_parallelism};
+use std::{
+    sync::{Arc, Mutex},
+    thread::available_parallelism,
+};
 
 use actix_web::web::Data;
 use chashmap::CHashMap;
 use config::{app_state::AppState, get_mongo_pool, parse_env};
+use db_helper::write_updates::StoreUpdate;
 use types::BroadcastToAddresses;
 
 #[cfg(feature = "use_channel")]
@@ -32,6 +36,7 @@ async fn main() -> std::io::Result<()> {
         Sender<channel::UpdateMainMessage>,
         Receiver<channel::UpdateMainMessage>,
     ) = mpsc::channel();
+
     let docs: CHashMap<String, yrs::Doc> = CHashMap::new();
 
     let docs = Data::new(docs);
@@ -52,8 +57,13 @@ async fn main() -> std::io::Result<()> {
     #[cfg(feature = "use_channel")]
     let move_broadcast_to_addresses = broadcast_to_addresses.clone();
 
+    let updates_to_flush = Arc::new(Mutex::new(Vec::new()));
+    let move_updates_to_flush = updates_to_flush.clone();
+
     #[cfg(feature = "use_channel")]
     actix::spawn(async move {
+        println!("jere 1");
+
         let docs = move_docs.clone();
 
         for msg in rx.iter() {
@@ -64,7 +74,14 @@ async fn main() -> std::io::Result<()> {
 
                 let doc = docs.get_mut(&msg.document_id).unwrap();
 
-                utils::apply_update(&doc, &msg.update.unwrap().to_vec());
+                let update = msg.update.unwrap();
+                utils::apply_update(&doc, &update.to_vec());
+
+                move_updates_to_flush.lock().unwrap().push(StoreUpdate {
+                    document_id: msg.document_id.clone(),
+                    update,
+                    origin: "test_origin".to_string(),
+                });
 
                 if move_broadcast_to_addresses.get(&msg.document_id).is_some() {
                     let broadcast_to_addresses =
@@ -81,6 +98,26 @@ async fn main() -> std::io::Result<()> {
             }
         }
     });
+
+    #[cfg(feature = "use_channel")]
+    actix::spawn(async move {
+        println!("jere");
+
+        // let mut interval = interval(std::time::Duration::from_millis(1000));
+        // interval.tick().await;
+        // let updates = updates_to_flush.lock().unwrap();
+        // if updates.len() > 0 {
+        //     let store_updates;
+        //     {
+        //         let mut updates_to_flush = updates_to_flush.lock().unwrap();
+        //         store_updates = updates_to_flush.clone();
+        //         updates_to_flush.clear();
+        //         println!("flush: {:?}", updates_to_flush.len());
+        //     }
+        //     println!("store_updates: {:?}", store_updates.len());
+        // }
+    });
+
     let counter = Data::new(Mutex::new(0));
 
     return actix_web::HttpServer::new(move || {

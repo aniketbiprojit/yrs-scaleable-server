@@ -1,10 +1,10 @@
 pub mod mongo;
 
-#[derive(Debug)]
-pub struct StoreUpdate<'a> {
-    pub document_id: &'a str,
+#[derive(Debug, Clone)]
+pub struct StoreUpdate {
+    pub document_id: String,
     pub update: bytes::Bytes,
-    pub origin: &'a str,
+    pub origin: String,
 }
 
 #[async_trait::async_trait]

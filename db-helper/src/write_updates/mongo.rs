@@ -89,7 +89,7 @@ pub(crate) mod mongo_write_tests {
     ) {
         for _ in 0..num_updates {
             store_updates.push(StoreUpdate {
-                document_id: "test",
+                document_id: "test".to_string(),
                 update: bytes::Bytes::from(vec![
                     1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 1, 2, 3,
                     4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 1, 2, 3, 4, 5, 6,
@@ -104,7 +104,7 @@ pub(crate) mod mongo_write_tests {
                     5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 1, 2, 3, 4, 5, 6, 7,
                     8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
                 ]),
-                origin: "test_origin",
+                origin: "test_origin".to_string(),
             });
         }
     }
@@ -118,9 +118,9 @@ pub(crate) mod mongo_write_tests {
 
         mongo_writer
             .write_update(&StoreUpdate {
-                document_id: "test",
+                document_id: "test".to_string(),
                 update: bytes::Bytes::from(vec![1, 2, 3]),
-                origin: "test_origin",
+                origin: "test_origin".to_string(),
             })
             .await
             .unwrap();

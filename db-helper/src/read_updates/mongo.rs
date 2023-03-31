@@ -59,9 +59,9 @@ pub(crate) mod mongo_read_tests {
 
         mongo_writer
             .write_update(&StoreUpdate {
-                document_id: "test",
+                document_id: "test".to_string(),
                 update: bytes::Bytes::from(vec![1, 2, 3]),
-                origin: "test_origin",
+                origin: "test_origin".to_string(),
             })
             .await
             .unwrap();
