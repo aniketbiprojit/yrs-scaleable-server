@@ -1,8 +1,8 @@
-use std::collections::HashMap;
 #[cfg(feature = "use_channel")]
 use std::sync::mpsc::{self, Receiver, Sender};
 
 use actix_web::web::Data;
+use chashmap::CHashMap;
 use config::{app_state::AppState, get_mongo_pool, parse_env};
 use yrs::{updates::decoder::Decode, Transact, Update};
 
@@ -26,18 +26,23 @@ async fn main() -> std::io::Result<()> {
         Sender<channel::UpdateMainMessage>,
         Receiver<channel::UpdateMainMessage>,
     ) = mpsc::channel();
+    let docs: CHashMap<String, yrs::Doc> = CHashMap::new();
+
+    let docs = Data::new(docs);
+
+    let move_docs = docs.clone();
 
     #[cfg(feature = "use_channel")]
     actix::spawn(async move {
-        let mut docs: HashMap<String, yrs::Doc> = HashMap::new();
-
+        let docs = move_docs.clone();
         for msg in rx.iter() {
             if msg.update.is_some() && (msg.message_type == 1 || msg.message_type == 2) {
-                if !docs.contains_key(&msg.document_id) {
-                    docs.insert(msg.document_id.clone(), yrs::Doc::new());
+                if docs.get(&msg.document_id).is_none() {
+                    docs.insert_new(msg.document_id.clone(), yrs::Doc::new());
                 }
 
-                let mut tx = docs.get_mut(&msg.document_id).unwrap().transact_mut();
+                let doc = docs.get_mut(&msg.document_id).unwrap();
+                let mut tx = doc.transact_mut();
 
                 let update = msg.update.unwrap();
                 let update_to_apply = Update::decode_v1(&*update.to_vec()).unwrap();
@@ -57,6 +62,7 @@ async fn main() -> std::io::Result<()> {
         actix_web::App::new()
             .app_data(app_state.clone())
             .app_data(doc_data)
+            .app_data(docs.clone())
             .route(
                 "/socket.io/",
                 actix_web::web::get().to(routes::socket_route),

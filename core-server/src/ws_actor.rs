@@ -1,12 +1,16 @@
-use std::sync::mpsc::Sender;
+use std::sync::{mpsc::Sender, Arc};
 
 use actix::ActorContext;
 use actix_web_actors::ws::Message;
+use base64::{engine::general_purpose::STANDARD, Engine};
 
-use crate::socket_message::SocketMessage;
+use chashmap::CHashMap;
+
+use crate::socket_message::{handle_event, SocketMessage};
 
 pub(crate) struct WSActor {
     pub document_id: String,
+    pub docs: Arc<CHashMap<String, yrs::Doc>>,
     #[cfg(feature = "use_mutex")]
     pub doc_data: (),
     #[cfg(feature = "use_channel")]
@@ -28,20 +32,36 @@ impl
 
                 if socket_message.is_err() {
                     eprintln!("{:?}", socket_message.unwrap_err());
-                    // TODO: self.send_self("Error", "Error", ctx);
+                    self.send_self("Error", "Error", ctx);
                     ctx.stop();
                     return;
                 }
                 let socket_message = socket_message.unwrap();
 
-                let handle_event =
-                    crate::socket_message::handle_event::handle_event_v1(&socket_message).unwrap();
+                let handle_event = handle_event::handle_event_v1(
+                    &socket_message,
+                    &self.document_id,
+                    self.docs.clone(),
+                )
+                .unwrap();
+
+                if handle_event.message.is_none() {
+                    return;
+                }
+
+                let message = handle_event.message.unwrap();
+
+                if handle_event.message_type == 0 || handle_event.message_type == 1 {
+                    self.send_self("Sync", &STANDARD.encode(message.to_vec()), ctx)
+                }
+
+                // handle sync v1?
                 #[cfg(feature = "use_channel")]
                 self.doc_data
                     .send(crate::channel::UpdateMainMessage::new(
                         &self.document_id,
-                        handle_event.1,
-                        handle_event.2,
+                        handle_event.update,
+                        handle_event.message_type,
                     ))
                     .unwrap();
             }
