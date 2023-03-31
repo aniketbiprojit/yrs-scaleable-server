@@ -74,7 +74,7 @@ pub(crate) mod mongo_write_tests {
     }
 
     pub(crate) async fn drop_collection(
-        mongo_pool: &Pool<MongodbConnectionManager>,
+        mongo_pool: Pool<MongodbConnectionManager>,
         collection_name: &str,
     ) {
         let db = mongo_pool.get().await.unwrap();
@@ -114,7 +114,7 @@ pub(crate) mod mongo_write_tests {
     async fn test_write_works() {
         let mongo_pool = get_mongo_pool().await;
 
-        let mongo_writer = MongoHelper::new(&mongo_pool, "TestTransactionCollection");
+        let mongo_writer = MongoHelper::new(mongo_pool.clone(), "TestTransactionCollection");
 
         mongo_writer
             .write_update(&StoreUpdate {
@@ -125,7 +125,7 @@ pub(crate) mod mongo_write_tests {
             .await
             .unwrap();
 
-        drop_collection(&mongo_pool, "TestTransactionCollection").await;
+        drop_collection(mongo_pool, "TestTransactionCollection").await;
     }
 
     #[tokio::test]
@@ -133,7 +133,7 @@ pub(crate) mod mongo_write_tests {
         let mongo_pool = get_mongo_pool().await;
 
         let collection_name = "TestTransactionCollection";
-        let mongo_writer = MongoHelper::new(&mongo_pool, collection_name);
+        let mongo_writer = MongoHelper::new(mongo_pool.clone(), collection_name);
 
         let mut store_updates: Vec<StoreUpdate> = vec![];
         let num_updates = 10000;
@@ -152,7 +152,7 @@ pub(crate) mod mongo_write_tests {
             "Time elapsed in multiple_writes() is: {:?} for {:?} in memory updates",
             duration, num_updates
         );
-        drop_collection(&mongo_pool, collection_name).await;
+        drop_collection(mongo_pool, collection_name).await;
     }
 
     #[tokio::test]
@@ -160,7 +160,7 @@ pub(crate) mod mongo_write_tests {
         let mongo_pool = get_mongo_pool().await;
 
         let collection_name = "TestTransactionCollection";
-        let mongo_writer = MongoHelper::new(&mongo_pool, collection_name);
+        let mongo_writer = MongoHelper::new(mongo_pool.clone(), collection_name);
 
         let mut store_updates: Vec<StoreUpdate> = vec![];
         let num_updates = 10000;
@@ -180,7 +180,7 @@ pub(crate) mod mongo_write_tests {
             "Time elapsed in write_batch_update() is: {:?} for {:?} in memory updates",
             duration, num_updates
         );
-        drop_collection(&mongo_pool, collection_name).await;
+        drop_collection(mongo_pool, collection_name).await;
     }
 
     #[tokio::test]
@@ -191,7 +191,7 @@ pub(crate) mod mongo_write_tests {
 
         let mongo_pool = get_mongo_pool().await;
 
-        let mongo_writer = MongoHelper::new(&mongo_pool, collection_name);
+        let mongo_writer = MongoHelper::new(mongo_pool.clone(), collection_name);
 
         let mut store_updates: Vec<StoreUpdate> = vec![];
         // this should be 10_000 but it takes over 26 seconds.
@@ -218,6 +218,6 @@ pub(crate) mod mongo_write_tests {
             "Time elapsed in multiple_writes_with_clock() is: {:?} for {:?} in memory updates",
             duration, num_updates
         );
-        drop_collection(&mongo_pool, collection_name).await;
+        drop_collection(mongo_pool, collection_name).await;
     }
 }

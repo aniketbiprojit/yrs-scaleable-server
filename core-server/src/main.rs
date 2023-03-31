@@ -7,8 +7,11 @@ use std::{
 
 use actix_web::web::Data;
 use chashmap::CHashMap;
-use config::{app_state::AppState, get_mongo_pool, parse_env};
-use db_helper::write_updates::StoreUpdate;
+use config::{get_mongo_pool, parse_env};
+use db_helper::{
+    db::mongo::MongoHelper,
+    write_updates::{StoreUpdate, WriteUpdates},
+};
 use types::BroadcastToAddresses;
 
 #[cfg(feature = "use_channel")]
@@ -28,8 +31,6 @@ async fn main() -> std::io::Result<()> {
     let app_environment = parse_env();
 
     let mongo_pool = get_mongo_pool(&app_environment).await;
-
-    let app_state = Data::new(AppState::new(mongo_pool));
 
     #[cfg(feature = "use_channel")]
     let (tx, rx): (
@@ -57,43 +58,35 @@ async fn main() -> std::io::Result<()> {
     #[cfg(feature = "use_channel")]
     let move_broadcast_to_addresses = broadcast_to_addresses.clone();
 
-    let updates_to_flush = Arc::new(Mutex::new(Vec::new()));
+    let updates_to_flush = Arc::new(tokio::sync::Mutex::new(Vec::<StoreUpdate>::new()));
     let move_updates_to_flush = updates_to_flush.clone();
+
+    let mongo_writer = Arc::new(MongoHelper::new(
+        mongo_pool.clone(),
+        "TestTransactionCollection",
+    ));
 
     #[cfg(feature = "use_channel")]
     actix::spawn(async move {
-        println!("jere 1");
+        let mut interval = actix::clock::interval(std::time::Duration::from_millis(100));
+        loop {
+            interval.tick().await;
 
-        let docs = move_docs.clone();
+            let store_updates;
 
-        for msg in rx.iter() {
-            if msg.update.is_some() && (msg.message_type == 1 || msg.message_type == 2) {
-                if docs.get(&msg.document_id).is_none() {
-                    docs.insert_new(msg.document_id.clone(), yrs::Doc::new());
-                }
+            {
+                let mut lock = updates_to_flush.lock().await;
+                store_updates = lock.clone();
+                lock.clear();
+            }
 
-                let doc = docs.get_mut(&msg.document_id).unwrap();
-
-                let update = msg.update.unwrap();
-                utils::apply_update(&doc, &update.to_vec());
-
-                move_updates_to_flush.lock().unwrap().push(StoreUpdate {
-                    document_id: msg.document_id.clone(),
-                    update,
-                    origin: "test_origin".to_string(),
-                });
-
-                if move_broadcast_to_addresses.get(&msg.document_id).is_some() {
-                    let broadcast_to_addresses =
-                        move_broadcast_to_addresses.get(&msg.document_id).unwrap();
-
-                    for addr in broadcast_to_addresses.iter() {
-                        addr.do_send(Sync {
-                            message: msg.encoded_message.to_string(),
-                            event: "Sync".to_string(),
-                            socket_id: msg.socket_id,
-                        });
-                    }
+            if store_updates.len() > 0 {
+                {
+                    println!("flush: {:?}", store_updates.len());
+                    mongo_writer
+                        .write_batch_updates(&store_updates)
+                        .await
+                        .unwrap();
                 }
             }
         }
@@ -101,21 +94,42 @@ async fn main() -> std::io::Result<()> {
 
     #[cfg(feature = "use_channel")]
     actix::spawn(async move {
-        println!("jere");
+        let docs = move_docs.clone();
+        let mut interval = actix::clock::interval(std::time::Duration::from_millis(200));
+        loop {
+            interval.tick().await;
+            for msg in rx.try_iter() {
+                if msg.update.is_some() && (msg.message_type == 1 || msg.message_type == 2) {
+                    if docs.get(&msg.document_id).is_none() {
+                        docs.insert_new(msg.document_id.clone(), yrs::Doc::new());
+                    }
 
-        // let mut interval = interval(std::time::Duration::from_millis(1000));
-        // interval.tick().await;
-        // let updates = updates_to_flush.lock().unwrap();
-        // if updates.len() > 0 {
-        //     let store_updates;
-        //     {
-        //         let mut updates_to_flush = updates_to_flush.lock().unwrap();
-        //         store_updates = updates_to_flush.clone();
-        //         updates_to_flush.clear();
-        //         println!("flush: {:?}", updates_to_flush.len());
-        //     }
-        //     println!("store_updates: {:?}", store_updates.len());
-        // }
+                    let doc = docs.get_mut(&msg.document_id).unwrap();
+
+                    let update = msg.update.unwrap();
+                    utils::apply_update(&doc, &update.to_vec());
+
+                    move_updates_to_flush.lock().await.push(StoreUpdate {
+                        document_id: msg.document_id.clone(),
+                        update,
+                        origin: "test_origin".to_string(),
+                    });
+
+                    if move_broadcast_to_addresses.get(&msg.document_id).is_some() {
+                        let broadcast_to_addresses =
+                            move_broadcast_to_addresses.get(&msg.document_id).unwrap();
+
+                        for addr in broadcast_to_addresses.iter() {
+                            addr.do_send(Sync {
+                                message: msg.encoded_message.to_string(),
+                                event: "Sync".to_string(),
+                                socket_id: msg.socket_id,
+                            });
+                        }
+                    }
+                }
+            }
+        }
     });
 
     let counter = Data::new(Mutex::new(0));
@@ -128,7 +142,6 @@ async fn main() -> std::io::Result<()> {
         let doc_data = Data::new({});
 
         actix_web::App::new()
-            .app_data(app_state.clone())
             .app_data(doc_data)
             .app_data(broadcast_to_addresses.clone())
             .app_data(counter.clone())

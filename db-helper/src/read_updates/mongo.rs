@@ -55,7 +55,7 @@ pub(crate) mod mongo_read_tests {
     async fn test_read_works() {
         let mongo_pool = get_mongo_pool().await;
 
-        let mongo_writer = MongoHelper::new(&mongo_pool, "TestTransactionCollection");
+        let mongo_writer = MongoHelper::new(mongo_pool.clone(), "TestTransactionCollection");
 
         mongo_writer
             .write_update(&StoreUpdate {
@@ -66,27 +66,27 @@ pub(crate) mod mongo_read_tests {
             .await
             .unwrap();
 
-        let mongo_reader = MongoHelper::new(&mongo_pool, "TestTransactionCollection");
+        let mongo_reader = MongoHelper::new(mongo_pool.clone(), "TestTransactionCollection");
 
         let updates = mongo_reader.get_updates("test").await.unwrap();
 
         assert_eq!(updates.len(), 1);
 
-        drop_collection(&mongo_pool, "TestTransactionCollection").await;
+        drop_collection(mongo_pool, "TestTransactionCollection").await;
     }
 
     #[tokio::test]
     async fn test_multiple_reads() {
         let mongo_pool = get_mongo_pool().await;
 
-        let mongo_writer = MongoHelper::new(&mongo_pool, "TestTransactionCollection");
+        let mongo_writer = MongoHelper::new(mongo_pool.clone(), "TestTransactionCollection");
 
         let collection_name = "TestTransactionCollection";
 
         let mut store_updates: Vec<StoreUpdate> = vec![];
 
         let num_updates = 10_000;
-        drop_collection(&mongo_pool, collection_name).await;
+        drop_collection(mongo_pool.clone(), collection_name).await;
 
         get_store_updates_test_case(num_updates, &mut store_updates);
 
@@ -96,7 +96,7 @@ pub(crate) mod mongo_read_tests {
 
         let start = Instant::now();
 
-        let mongo_reader = MongoHelper::new(&mongo_pool, "TestTransactionCollection");
+        let mongo_reader = MongoHelper::new(mongo_pool.clone(), "TestTransactionCollection");
 
         let updates = mongo_reader.get_updates("test").await.unwrap();
 
@@ -108,6 +108,6 @@ pub(crate) mod mongo_read_tests {
             "Time in test_multiple_reads() is: {:?} for {:?} in memory updates",
             duration, num_updates
         );
-        drop_collection(&mongo_pool, collection_name).await;
+        drop_collection(mongo_pool, collection_name).await;
     }
 }

@@ -86,6 +86,14 @@ impl actix::Actor for WSActor {
             .get_mut(&self.document_id)
             .unwrap()
             .remove(&ctx.address());
+        println!("Stopped: {:?}", self.socket_id);
+        println!(
+            "Connections: {:?}",
+            self.broadcast_to_addresses
+                .get(&self.document_id)
+                .unwrap()
+                .len()
+        );
     }
 }
 
